@@ -36,7 +36,7 @@ The following are my personal notes in preparation for the AWS Certified Data En
    * [Lake Formation](#lake-formation)
    * [Athena](#athena)
    * [Amazon Elastic MapReduce (EMR)](#amazon-elastic-mapreduce-emr)
-   * [Kinesis Data Streams, Firehose](#kinesis-data-streams-firehose)
+   * [Kinesis Data Streams, Firehose -> last](#kinesis-data-streams-firehose)
    * [Amazon Managed Streaming for Apache Kafka (MSK)](#amazon-managed-streaming-for-apache-kafka-msk)
    * [OpenSearch Service](#opensearch-service)
    * [QuickSight](#quicksight)
@@ -73,7 +73,6 @@ The following are my personal notes in preparation for the AWS Certified Data En
 
 ## Notes from other exam takers (from r/dataengineering reddit comments and other sources)
 
-- Notes
 - There were questions that focused on specific choosing the right SQL queries and performance tuning and consolidation for data coming from multiple datasets and various formats. Data Lake, Red Shift, various RDS flavors and lots of AWS Glue and some Kinesis were common in questions
 - DAS covers Analytics section, DEA does not. DEA covers a little CI/CD, DAS does not. DEA focuses more on implementation and some sql stuff, DAS more on design and big data. The exam guides list everything. The overlap seems to be 80% of DEA is 60% of DAS. Overall, DEA is an easier subset of DAS. IMHO.
 - Lots of glue *** (close to 20 questions)
@@ -90,8 +89,8 @@ The following are my personal notes in preparation for the AWS Certified Data En
 
 ### Simple Storage Service (S3)
 
- - Stores any kind of data (i.e. serves as a data lake) as objects (files) within buckets.
- - Max size of an object is 5TB, no limit for the number of objects stored (infinitely scalable).
+- Stores any kind of data (i.e. serves as a data lake) as objects (files) within buckets.
+- Max size of an object is 5TB, no limit for the number of objects stored (infinitely scalable).
 - Multipart upload loads the data parallely, used for object size >100MB and recommended if size > 5GB.
 
 **Storage classes**
@@ -100,16 +99,16 @@ The following are my personal notes in preparation for the AWS Certified Data En
 - S3 Standard-IA - For less frequently accessed data (not accessed for 30 days), rapid access when needed. Costs less.
 - S3 Standard-One ZoneIA - For less frequently accessed data (not accessed for 30 days), rapid access when needed. Stored in single AZ.
 - S3 Glacier
-- Glacier Instance retrieval - Data access once a quarter (90 days). Millisec data retrieval
-- Glacier Flexible retrieval- Data access once a quarter (90 days). Can wait up to 12hrs for data retrieval
-- Glacier Deep Archive - Data access once in 180 days. Can wait up to 48 hours for retrieval. Lowest cost.
+    - Glacier Instance retrieval - Data access once a quarter (90 days). Millisec data retrieval
+    - Glacier Flexible retrieval- Data access once a quarter (90 days). Can wait up to 12hrs for data retrieval
+    - Glacier Deep Archive - Data access once in 180 days. Can wait up to 48 hours for retrieval. Lowest cost.
 - S3 Intelligent Tiering - Automatic movement of objects between storage classes
 
 **S3 Lifecycle Rules**
 - Transition Actions - Defines when objects are transitioned to other storage classes.
 - Expiration Actions - Define when objects will be expired (deleted) from the bucket
 
-**Versioning**: new version ID will be created every upload. Any file not versioned prior to enabling versioning will be set to null.
+**Versioning**: New version ID will be created every upload. Any file not versioned prior to enabling versioning will be set to null.
 
 **S3 Replication**
 - Must enable versioning in source and dest for doing replication. Replication is not chained. (A > B > C)
@@ -334,6 +333,8 @@ The following are my personal notes in preparation for the AWS Certified Data En
 - Run directly against exabytes of data stored in S3
 - Columnar storage (block size of 1MB), data compression. Uses MPP (massively parallel processing) data warehouse architecture to parallelize and distribute SQL operations.
 
+![Redshift Architecture](./img/redshift1.png)
+
 **ANALYZE command** `auto_analyze` (default `true`): run stats to optimise query planning.
 
 **Data replication** - 3 copies of data - original, replica on compute node, automatic async continuous backup to S3 as snapshots in another region for disaster recovery.
@@ -366,23 +367,26 @@ The following are my personal notes in preparation for the AWS Certified Data En
 
 - Associate IAM role with Amazon Redshift cluster
 - Create an external schema and external table:
-`CREATE EXTERNAL SCHEMA myspectrum_schema 
- FROM DATA CATALOG 
- DATABASE 'myspectrum_db' 
- IAM_ROLE 'arn:aws:iam::123456789012:role/myspectrum_role'
-CREATE EXTERNAL DATABASE IF NOT EXISTS;` (for csv file):
     
-    `create external table spectrum.sales(
+    ```
+    CREATE EXTERNAL SCHEMA myspectrum_schema 
+    FROM DATA CATALOG 
+    DATABASE 'myspectrum_db' 
+    IAM_ROLE 'arn:aws:iam::123456789012:role/myspectrum_role'
+    CREATE EXTERNAL DATABASE IF NOT EXISTS; 
+    ```
+- (For csv file)
+    ```
+    CREATE EXTERNAL TABLE spectrum.sales(
     salesid integer,
-    ...`
-    
-    `saletime timestamp)
+    ...    
+    saletime timestamp)
     row format delimited
     fields terminated by '\t'
     stored as textfile
     location 's3://awssampledbuswest2/tickit/spectrum/sales/'
-    table properties ('numRows'='170000');`
-    
+    table properties ('numRows'='170000');
+    ``` 
 
 **Redshift Data Distribution styles**
 
@@ -584,11 +588,11 @@ CREATE EXTERNAL DATABASE IF NOT EXISTS;` (for csv file):
 
 - Lambda responds to new data showing up at any time in S3 →  Lambda batch up new data and load using `COPY` → lambda keeps track what has been loaded using DynamoDB
     
-    ![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/6656cf79-156e-4016-8b20-c5a50189e6c1/a0a94868-2a2a-4d2c-b0dd-28daf78257f1/Untitled.png)
+    ![](./img/lambda1.png)
     
 - Lambda receives event with batch of stream records → specify batch size (up to 10,000 records)
     
-    ![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/6656cf79-156e-4016-8b20-c5a50189e6c1/ac22842c-8ad8-4f1d-98ed-dca8edb88256/Untitled.png)
+    ![](./img/lambda2.png)
     
     - Too large a batch size can cause timeout → split batches beyond Lambda’s payload limit
     - Lambda retries batch until success or data expiry
@@ -602,16 +606,16 @@ CREATE EXTERNAL DATABASE IF NOT EXISTS;` (for csv file):
 - Configure mount EFS to local directory during initialization, must leverage EFS Access Points
 - Limitations: EFS connection limits (1 instance = 1 connection) and connection burst limits
     
-    ![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/6656cf79-156e-4016-8b20-c5a50189e6c1/8edf4daa-41b3-47d6-9c16-8828f156f162/Untitled.png)
+    ![](./img/lambda3.png)
     
 
 **Lambda storage options**
 
 |  | Ephermeral | Lambda Layers | S3 | EFS |
 | --- | --- | --- | --- | --- |
-| Size | 10 GB | 5 layers/fn, 250MB total | Elastic | Elastic |
-| Storage Type | File System | zip | Object | File System |
-| Details | Function access only, fastest | Static, immutable, fastest | Atomic operations with versioning |   |
+| **Size** | 10 GB | 5 layers/fn, 250MB total | Elastic | Elastic |
+| **Storage Type** | File System | zip | Object | File System |
+| **Details** | Function access only, fastest | Static, immutable, fastest | Atomic operations with versioning |   |
 |  |  |  |  |  |
 
 ### Serverless Application Model (SAM)
@@ -849,16 +853,7 @@ CREATE EXTERNAL DATABASE IF NOT EXISTS;` (for csv file):
 
 **Steps**
 
-Create IAM user for analyst 
-→ Create Glue connection to data source 
-→ create S3 bucket for lake 
-→ Register S3 in LakeFormation w permissions 
-→ Create DB in LakeFormation for datacatalog w permissions 
-→ use blueprint for workflow (i.e. DB snapshot) 
-→ run workflow 
-→ grant SELECT permissions to whoever needs to read it (Athena, Redshift Spectrum, etc.)
-
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/6656cf79-156e-4016-8b20-c5a50189e6c1/7ce6c1f7-cb52-458d-aa91-1ba58c4aa64e/Untitled.png)
+![](./img/lakeformation1.png)
 
 **Finer points**
 
@@ -929,7 +924,7 @@ Create IAM user for analyst
 
 **Athena ACID transactions support using Apache Iceberg**
 
-- Use `table_type = ‘ICEBERG’` in `CREATE TABLE` command
+- Use `table_type = 'ICEBERG'` in `CREATE TABLE` command
 - Concurrent users can safely make row-level modifications
 - Compatible with EMR, Spark, anything that supports Iceberg table format
 - Removes need for custom record locking
@@ -965,8 +960,10 @@ Create IAM user for analyst
 **Spark Streaming** - usually refer to data as a dataset
 
 - Data stream as an unbounded Input Table
-`val inputDF = spark.readStream.json(”s3://logs”)
-inputDF.groupBy($”action”,window($”time”,”1 hour”).count().writeStream.format(”jdbc”).start(”jdbc:mysql//…”)`
+```
+val inputDF = spark.readStream.json("s3://logs")
+inputDF.groupBy($"action",window($"time”,"1 hour").count().writeStream.format("jdbc").start("jdbc:mysql//…")
+```
 
 **Integration with Kinesis**
 
@@ -978,7 +975,7 @@ inputDF.groupBy($”action”,window($”time”,”1 hour”).count().writeStre
 - e.g. S3 → Redshift → ETL with EMR (Spark) → Redshift → …
 
 **Integration with Athena**
-
+S
 - Run Jupyter notebooks with Spark within Athena console → notebooks may be encrypted automatically or with KMS
 - Totally serverless
 - Selectable as an alternate analytics engine (vs Athena SQL)
@@ -1075,11 +1072,11 @@ inputDF.groupBy($”action”,window($”time”,”1 hour”).count().writeStre
 
 **Using EMR Serverless**
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/6656cf79-156e-4016-8b20-c5a50189e6c1/c1d7bb15-0c11-41da-899d-35cbc8f4eb9c/Untitled.png)
+![](./img/emr1.png)
 
 **EMR Serverless Application Lifecycle**
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/6656cf79-156e-4016-8b20-c5a50189e6c1/d933386f-bb14-4b7b-8bda-1142cb2410fb/Untitled.png)
+![](./img/emr2.png)
 
 - Not all automatic → must call APIs CreateApplication, StartApplication, StopApplication and importantly DeleteApplication to avoid excess charges
 
@@ -1089,62 +1086,358 @@ inputDF.groupBy($”action”,window($”time”,”1 hour”).count().writeStre
 
 **EMR and EMR Serverless Security**
 
-- EMRFS - S3 encryption (SSE, CSE) at rest, TLS in transit between EMR nodes and S3
-- S3 - SSE-S3, SSE-KMS
+- **EMRFS** - S3 encryption (SSE, CSE) at rest, TLS in transit between EMR nodes and S3
+- **S3** - SSE-S3, SSE-KMS
 - Local disk encryption
 - Spark communication between drivers and executors is encrypted
 - Hive communication between Glue Metastore and EMR uses TLS
-- Force HTTPS (TLS) on S3 policies with aws:SecureTransport
+- Force HTTPS (TLS) on S3 policies with `aws:SecureTransport`
 
 **EMR on Elastic Kubernetes Service (EKS)** - fully managed
 
 - Allow submitting Spark jobs on EKS without provisioning clusters
-- Share resources betw Spark and other apps on K8s
+- Share resources between Spark and other apps on K8s
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/6656cf79-156e-4016-8b20-c5a50189e6c1/d733b5f5-509b-4907-bd77-2654a4a79bc1/Untitled.png)
+![](./img/emr3.png)
 
 ### Kinesis Data Streams, Firehose
 
+![](./img/kinesis1.png)
+
+- Retention between 1-365 days
+- Ability to reprocess (replay) data
+- Once data inserted into Kinesis, it cannot be deleted (immutable)
+- Data that shares the same partition goes to the same shard (ordering)
+
+**Kinesis Data Streams - Capacity Modes**
+- **Provisioned mode**
+    - Choose # of shards provisioned, scale manually or using API
+    - Each shard gets 1MB/s in (100records/s), and 2MB/s out (classic or enhanced fan-out for consumers)
+    - Pay per shard provisioned/hr
+- **On-demand mode**
+    - No need to provision or manage capacity
+    - Default capacity provisioned -> 4 MB/s in or 4000 records/s
+    - Scales automatically based on observed throughout peak during last 30 days
+    - Pay per stream/hr and in+out data/GB
+
+**Security**
+- Control access/authorization using IAM
+- Encryption in flight using HTTPS endpoints
+- Encryption at reast using KMS
+    - Can implement encrypt/decrypt on data client-side (harder)
+- VPC Endpoints available for Kinesis to access within VPC
+- Monitor API calls using CloudTrail
+![](./img/kinesis2.png)
+
+**Kinesis Producers**
+- **Kinesis SDK** - PutRecord(s)
+    - API used: `PutRecord` (one) and `PutRecords` (many)
+    - `PutRecords` use batching and increases throughput -> less HTTP requests
+    - **Use case**: low throughput, high latency, simple API, AWS Lambda
+    - Managed AWS sources that use ProducerSDK: CloudWatch Logs, AWS IoT, Kinesis Data Analytics
+    - `ProvisionedThroughputExceeded` exception if we go over limits
+        - Happens when sending more data (exceeding MB/s or TPS for any shard)
+        - Make sure you don't have a hot shard (eg. bad partition key, too much data goes into one partition)
+        - Solution: retry with backoff, scale-up shards, ensure good partitioning
+
+- **Kinesis Producer Library (KPL)**
+    - Easy to use and highly configurable C++/Java library
+    - Used for building high performance, long-running producers
+    - Automated and configurable retry mechanism
+    - Synchronous or **Asynchronous**** (better performance for async)
+    - **Batching** (both turned on by default) - increase throughput, decrease cost
+        - Collect records and write to multiple shares in same PutRecords API call
+        - Aggregate: capability to store multiple records in one record (exceed 1000 records/s limit) to increase payload size and improve throughput (maximize the 1MB/s limit at the cost of increased latency)
+        - Set batching efficiency by introducing some delay with `RecordMaxBufferedTime` (default 100ms)
+        ![](./img/kinesis3.png)
+        - Compression must be implemented on user side
+        - KPL Records must be decoded with KCL or special helper library
+    
+    - **When NOT to use KPL**: Apps that cannot tolerate additional delay due to large `RecordMaxBufferedTime` values (i.e. latency)
+    - e.g. KPL keeps data even when app goes offline, which `PutRecords` API delivers only latest data directly to stream
+    ![](./img/kinesis4.png)
+
+- **Kinesis Agent** - Linux program running on server to monitor log files and send reliably to Kinesis streams
+    - Java-based agent, built on top of KPL
+    - Features:
+        - Write from multiple directories and write to multiple streams
+        - Routing feature based on directory/log file
+        - Pre-process data before sending to streams (single line, csv to json, log to json)
+        - Handles log file rotation (log file aggregation), checkpointing, retry upon failures
+        - Emits metrics to CloudWatch for monitoring
+- 3rd party libraries: Spark, Log4j Appenders, Flume, Kafka Connect, Nifi
+
+**Kinesis Consumers** - Classic
+- **Kinesis SDK** - `GetRecords`
+    - Classic Kinesis - records polled from shard, each has 2MB total aggregate throughput
+    - `GetRecords` returns up to 10MB of data (then throttle for 5sec) or up to 10,000 records
+    - Max 5 `GetRecords` API calls/shard/s -> 200ms latency
+        - if 5 consumer apps consume from same shard, each can poll once/s and receive < 400KB/s -> solve using consumer fan-out feature
+
+- **Kinesis Client Library (KCL)**
+    - Java-first library, but exists for other langs too (Golang, Python, Ruby, Node, .NET)
+    - Read records from Kinesis produced from KPL (de-aggregation feature)
+    - Multiple consumers share multiple shards in a 'group' -> shard discovery
+    - **Checkpointing** feature to resume progress
+    - Leverages DynamoDB for coordination and checkpointing (one row/shard)
+        - Ensure enough DynamoDB WCU/RCU is provisioned, or use On-demand mode, otherwise it may slow down KCL
+    - Record processors will process the data
+    - `ExpiredIteratorException` -> increase WCU, DynamoDB table not fast enough to keep up with writes
+
+- **Kinesis Connector Library** - older Java library (2016) that leverages KCL - might be deprecated soon
+    - Writes data to S3, DynamoDB, Redshift, OpenSearch
+        - Kinesis Firehouse replaces it for some targets, Lambda for others
+
+- 3rd party libraries: Spark*, Log4j, Flume, Kafka Connect
+
+- **Kinesis Firehose**
+- **AWS Lambda**
+    - Lambda consumer has library to de-aggregate record from KPL
+    - Lambda can be used to run lightweight ETL to S3, DynamoDB, RedShift, OpenSearch, or others
+    - Can use to trigger notifications/send emails in real time
+    - Configurable batch size, i.e. how much should Lambda read at a time from Kinesis
+
+**Kinesis Enhanced Fan Out**: 
+- Each consumer get 2MB/S of provisioned throughput per shard -> 20 consumers will get 40MB/s per shard aggregated -> NO MORE 2MB/s limit
+- Data is pushed from Kinesis to consumers over HTTP/2
+- **Difference vs standard consumers**
+    - Multiple consumer apps for same stream, default limit is 20/stream
+    - Reduced latency (~70ms) vs 200ms
+    - Higher costs
+    ![](./img/kinesis6.png)
+
+**Kinesis Scaling**
+- **Adding shards (shard splitting)**: Increase stream capacity, 1MB/s data in per shard
+- Can be used to divide "hot shard"
+- Old shard before split is closed and will be deleted once data expires
+    ![](./img/kinesis7.png)
+
+- **Merging shards**: Decrease stream capacity to save costs if two shards have low traffic
+- Old shards closed and deleted after data expires
+
+- **Out-of-order records after resharding**: After reshard, consumers can read from child shard while unread data still exists in parent shard -> data not in order.
+    - Solution: after reshard, read parent records entirely until no new records
+    - KCL has logic built-in to handle this after resharding operations
+
+- **Auto-scaling**: not native feature of Kinesis, manual API call that changes number of shards is `UpdateShardCount` -> implement using AWS Lambda ([Link](https://aws.amazon.com/blogs/big-data/scaling-amazon-kinesis-data-streams-with-aws-application-auto-scaling/))
+
+- **Scaling Limitations**
+    - Cannot be done in parallel, so plan capacity in advance
+    - Only one resharding operation at a time, takes a few seconds. i.e. 1000 shards takes 30,000s (8.3h) to double to 2000 shards
+        <details>
+        <summary>You can't do the following:</summary>
+        - Cannot scale more than 10x for each rolling 24h period for each stream
+        
+        - Cannot scale up to more than double current shard count for a stream
+        
+        - Cannot scale down below half your current shard count for a stream
+        
+        - Cannot scale up to more than 500 shards in a stream
+        
+        - Cannot scale a steram with >500 shards down unless result is <500 shards
+        
+        - Cannot scale up to more than shard limit for account
+        </details>
+    
+**Handling Duplicates for Producers** (rarely occurs)
+- Producer retries can create duplicates due to **network timeouts** -> two records with identical data and unique sequence numbers
+    - Fix: **embed unique record ID** in data to de-duplicate on consumer side
+    ![](./img/kinesis8.png)
+
+**Handling Duplicates for Producers**
+- Can make application read same data twice, happens when record processors restart:
+    - Worker terminates unexpectedly
+    - Worker instances and added or removed
+    - Shards are merged or split
+    - App is deployed
+- Fix 1: ensure consumer app is idempotent (even if processed twice, it does not have twice the effect)
+- Fix 2: If final destination can handle duplicates, it's recommended to do it there (based in unique ID)
+- [More info](https://docs.aws.amazon.com/streams/latest/dev/kinesis-record-processor-duplicates.html)
+
+<details>
+<summary><b>Kinesis Security</b></summary>
+
+- Control access/auth using IAM
+
+- Encryption in flight using HTTPS endpoints, at-rest using KMS
+
+- Client-side encryption must be manually implemented (harder)
+
+- VPC Endpoints available for Kinesis to access within VPC
+
+</details>
+    
+**Kinesis Data Firehose**: Stores data into target destinations
+![](./img/kinesis9.png)
+- Read records, up to 1MB at a time
+- Batch writes into destinations efficiently
+- Near real-time service (60s latency minimum for non-full batches)
+- Destinations: Redshift, S3, OpenSearch , Splunk
+- Automatic scaling
+- Data Conversions from JSON to Parquet/ORC (only for S3)
+- Data Transformation through AWS Lambda (eg. csv to JSON)
+- Supports compression when target is S3 (GZIP, ZIP, SNAPPY)
+- Store **source records, transformation failures, delivery failures** into another backup S3 bucket
+- Pay for the amount of data going through Firehose
+- **Spark / KCL do NOT read from KDF**
+
+    ![](./img/kinesis10.png)
+
+- **Firehose buffer sizing**: accumulated data in buffer flushed based on time and size rules
+    - Buffer size (e.g. 32MB), flushed once reached
+    - Buffer time (e.g. 2mins), flushed once reached
+    - Firehose can auto-increase buffer size to increase throughput
+    - High throughput -> buffer size will be hit
+    - Low throughput -> buffer time will be hit
+
+**Kinesis Data Streams vs Firehose**
+
+|  | Kinesis Data Streams | Kinesis Data Firehose |
+| --- | --- | --- |
+| **Coding** | Custom code | Fully managed |
+| **Speed** | Real time<br><i>Classic ~200ms<br>Fanout ~70ms</i> | Near real time<br><i>Min buffer time 1min</i> |
+| **Scaling** | Manual<br>(shard splitting, merging) | Automated scaling |
+| **Storage** | Data storage<br>(1 - 365 days) | No storage<br>Send to S3, Splunk, Redshift, OpenSearch |
+| **Lambda use cases** | Insert data in real time to OpenSearch | Serverless data transformations |
+|  |  |  |
+
+**CloudWatch Logs Subscription Filters**
+- Send logs to destinations: Kinesis Data Streams, Firehose, Lambda
+- Example use cases
+
+    - **Logs subscription filter patterns in near real-time into Amazon ElasticSearch**
+        ![](./img/kinesis11.png)
+
+    - **Logs subscription filter patterns real-time load into Amazon ElasticSearch**
+        ![](./img/kinesis12.png)
+
+    - **Logs subscription filter patterns for real-time analytics**
+        ![](./img/kinesis13.png)
+
+**Troubleshooting and Performance Tuning for Kinesis Data Streams**
+- **Performance**
+    - **Slow writing** - Service limits may be exceeded
+        - Check for throughput exceptions, see what operations are being throttled. different calls have different limits
+        - Shard-level limits for writes and reads
+        - Other operations (`CreateStream`, `ListStreams`, `DescribeStreams`) have stream-level limts of 5-20 calls/sec
+        - Select partition key to evenly distribute puts across shards
+    - **Large producers** - Try to batch items up
+        - Use KCL, `PutRecords` with multi-records, or aggregate records into larger files
+    - **Small producers (i.e. apps)**
+        - Use `PutRecords` or Kinesis Recorder in the AWS Mobile SDKs
+
+
+
 ### Amazon Managed Streaming for Apache Kafka (MSK)
+
+- 
 
 ### OpenSearch Service
 
+- 
+
 ### QuickSight
+
+- 
 
 ## App Integration
 
 ### SQS
+
+- 
+
 ### SNS
+
+- 
+
 ### Step Functions**
+
+- 
+
 ### AppFlow
+
+- 
+
 ### EventBridge
+
+- 
+
 ### Amazon Managed Workflows for Apache Airflow (MWAA)
 
+- 
+
 ## Security, Identity and Compliance
+
 ### Principles
+
+- 
+
 ### IAM
+
+- 
+
 ### KMS
+
+- 
+
 ### Secrets Manager
+
+- 
+
 ### WAF, Shield
 
 ## Networking and Content Delivery
+
 ### VPC
+
+- 
+
 ### AWS PrivateLink
+
+- 
+
 ### Route53
+
+- 
+
 ### CloudFront
 
 ## Management and Governance
+
 ### CloudWatch
+
+- 
+
 ### CloudTrail, CloudTrail Lake
+
+- 
+
 ### AWS Config
+
+- 
+
 ### AWS CloudFormation
+
+- 
+
 ### SSM Parameter Store
 
+- 
+
 ## Machine Learning
+
 ### Sagemaker
 
+- 
+
 ## Developer Tools
+
 ### AWS CDK
+
+- 
+
 ### CodeDeploy, CodeCommit, CodeBuild, CodePipeline
+
+- 
 
 ## Acknowledgements
