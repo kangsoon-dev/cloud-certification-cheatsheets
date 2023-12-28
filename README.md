@@ -1146,7 +1146,7 @@ S
     - Automated and configurable retry mechanism
     - Synchronous or **Asynchronous**** (better performance for async)
     - **Batching** (both turned on by default) - increase throughput, decrease cost
-        - Collect records and write to multiple shares in same PutRecords API call
+        - Collect records and write to multiple shards in same PutRecords API call
         - Aggregate: capability to store multiple records in one record (exceed 1000 records/s limit) to increase payload size and improve throughput (maximize the 1MB/s limit at the cost of increased latency)
         - Set batching efficiency by introducing some delay with `RecordMaxBufferedTime` (default 100ms)
         ![](./img/kinesis3.png)
@@ -1154,7 +1154,7 @@ S
         - KPL Records must be decoded with KCL or special helper library
     
     - **When NOT to use KPL**: Apps that cannot tolerate additional delay due to large `RecordMaxBufferedTime` values (i.e. latency)
-    - e.g. KPL keeps data even when app goes offline, which `PutRecords` API delivers only latest data directly to stream
+    - e.g. KPL keeps data even when app goes offline, while `PutRecords` API delivers only latest data directly to stream
     ![](./img/kinesis4.png)
 
 - **Kinesis Agent** - Linux program running on server to monitor log files and send reliably to Kinesis streams
