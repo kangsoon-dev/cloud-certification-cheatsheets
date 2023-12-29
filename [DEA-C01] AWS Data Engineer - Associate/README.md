@@ -36,8 +36,9 @@ The following are my personal notes in preparation for the AWS Certified Data En
    * [Lake Formation](#lake-formation)
    * [Athena](#athena)
    * [Amazon Elastic MapReduce (EMR)](#amazon-elastic-mapreduce-emr)
-   * [Kinesis Data Streams, Firehose → last](#kinesis-data-streams-firehose)
+   * [Kinesis Data Streams, Firehose](#kinesis-data-streams-firehose)
    * [Amazon Managed Streaming for Apache Kafka (MSK)](#amazon-managed-streaming-for-apache-kafka-msk)
+   * [Kinesis Data Streams vs Amazon MSK](#kinesis-data-streams-vs-amazon-msk)
    * [OpenSearch Service](#opensearch-service)
    * [QuickSight](#quicksight)
 - [App Integration](#app-integration)
@@ -1401,21 +1402,218 @@ S
 - Use IAM permissions to access streaming source and destinations(s)
 - Schema discovery
 
-`**RANDOM_CUT_FOREST**`: SQL function used for anamoaly detection on numeric columns in stream
+`**RANDOM_CUT_FOREST**`: SQL function used for anomaly detection on numeric columns in stream
 - Novel way to identify outliers in dataset for further handling
 
 
 ### Amazon Managed Streaming for Apache Kafka (MSK)
 
-- 
+- Alternative to Kinesis, fully managed
+- ALlow create , update, delete clusters
+- MSK creates and amanges Kafka broker nodes and Zookeeper nodes for you
+- Deploy the MSK cluster in your VPC, multi-AZ (up to 3 for HA)
+- Automatic recovery from common Apache Kafka failures
+- Data is stored on EBS volumes
+- Can build producers and consumers of data
+- Can create custom configurations for clusters
+    - Default message size of 1MB, but can customise to large message sizes (e.g. 10MB) into Kafka after custom config
+![]()
+
+**Configurations**
+- Choose number of AZ (3 recommended, or 2)
+- Choose VPC and subnets
+- Choose broker instance type (eg kafka.m5.large)
+- NUmber of brokers per AZ (can add brokers later)
+- Size of EBS volumes (1GB - 16TB)
+
+**MSK Security**
+- Encryption:
+    - Optional in-flight using TLS between brokers (disable to improve performance)
+    - Optional in-flight with TLS between clients and brokers (disable to improve performance)
+    - At rest for EBS volumes using KMS
+- Network security
+    - Authorise specific security groups for your Apache Kafka clients
+- **Authentication and Authorisation****
+    - Define who can read/wruite to which topics
+    - Mutual TLS(AuthN) + Kafka ACLs (AuthZ)
+    - SASL/SCRAM userpw (AuthN) + Kafka ACLs (AuthZ)
+    - IAM access control (AuthN + AuthZ)
+
+**MSK Monitoring**
+- CloudWatch Metrics
+    - Basic monitoring (cluster and broker metrics)
+    - Enhanced monitoring (++enhanced broker metrics)
+    - Topic-level monitoring (++enhanced top-level metrics)
+- Prometheus (Open-source monitoring)
+    - Opens a port on the broker to export cluster, broker, and topic-level metrics
+    - Setup the JMX Exporter (metrics) or Node Exporter (CPU and disk metrics)
+- Broker Log Delivery
+    - Delivery to CloudWatch Logs
+    - Delivery to S3
+    - Delivery to Kinesis Data streams
+
+**MSK Connect** - framework that provide auto-scaling capabilities for managed workers
+- Can deploy any Kafka Connect connectors to MSK Connect as a plugin
+    - S3, Redshift, OpenSearch, Debezium, etc.
+
+**MSK Serverless** - Run Kafka on MSK without managing capacity
+- MSK auto-provision resources and scales compute, storage
+- Just define topics and partitions
+- Security, IAM Access Control for all clusters
+
+### Kinesis Data Streams vs Amazon MSK
+|  | Kinesis Data Streams | Amazon MSK |
+| --- | --- | --- |
+| **Message size** | 1 MB hard limit | 1MB default<br>Can be configured for higher (eg 10MB) |
+| **Setup** | Data Streams with Shards | Kafka Topics with Partitions |
+| **Performance Tuning** | Shard splitting and merging | Can only add partitions to topic |
+| **Encryption** | TLS in-flight<br>KMS at-rest | PLAINTEXT or TLS in-flight<br>KMS at-rest |
+| **Authentication (AuthN)<br> Authorization (AuthZ)** | IAM policies for AuthN/AuthZ | Mutual TLS(AuthN) + Kafka ACLs (AuthZ)<br>SASL/SCRAM userpw (AuthN) + Kafka ACLs (AuthZ)<br>IAM access control (AuthN + AuthZ) |
 
 ### OpenSearch Service
 
-- 
+- Formerly Elasticsearch - petabye-scale analysis and reporting
+- Fork of Elasticsearch and Kibana, fundamentally a search engine, built on top of Lucene but scalable
+- Used as a analysis tool and a visualization tool (Dashboards = Kibana)
+- Data pipeline - Kinesis replaces Beats and LogStash for ingestion
+- **Use cases**: Full-text search, log analytics, app monitoring, security/clickstream analytics
+- **Concepts**
+    - Documents: Can be any structured JSON data -> has unique ID and type
+    - Types: define schema and mapping shared by document that represent the same thing (log entry, encyclopedia article, etc.) - not so important
+    - Indices: Allow searching of all documents within collection of types
+- **How it works**
+    - Index is split into shards that may be on different node in a cluster
+    - Documents are hashed to a particular shard
+    - Every shard is a self-contained Lucene index of its own
+- **Redundancy**
+    - Write requests are written to primary shard and replicated to however many replicas specified
+    - Read requests can come from where-ever
+    - App should evenly distribute requests amongst nodes round-robin\
+        - Increase replica nodes to increase read throughput
+
+**Managed OpenSearch** - not serverless
+- Scale up/down without downtime, but not automatic, need to set nodes req'd
+- Pay per use - instance-hours, storage, data transfer
+- Network isolation using VPC
+- AWS integration
+    - S3 (via Lambda to Kinesis)
+    - Kinesis Data Streams
+    - DynamoDB Streams
+    - CloudWatch / CloudTrail
+    - AZ awareness, might cause latency
+
+- **Options**
+    - Dedicated master node(s)
+        Choice of count and instance types
+    - "Domains" (AWS specific) - collection of all resources needed to run cluster
+    - Snapshots to S3
+    - AZ awareness
+
+- **Security**
+    - Resource-based policies
+    - Identity-based policies
+    - IP-based policies
+    - Request signing
+    - VPC, cannot be changed after creation
+    - Cognito
+
+- **Securing Dashboards**
+    - Use identity provider to login with Cognito integration
+    - Access to VPC from outside
+        - Nginx reverse proxy on EC2 forwarding to ES Domain
+        - SSH tunnel for port 5601
+        - VPC Direct Connect
+        - VPN
+
+- **OpenSearch anti-patterns**
+    - OLTP - no transactions, RDS/DynamoDB is better
+    - Ad-hoc data querying, Athena is better
+    - Search and analytics is more suitable
+
+- **Storage Types**
+    - Hot storage: standard data nodes, default and the most expensive
+    - UltraWarm (warm) storage: S3 + caching
+        - Best for indices with few writes (log data, immutalbe data)
+        - Slower performance but uch lower cost
+        - Must have a dedicated master node
+    - Cold storage
+        - Uses S3, even cheaper
+        - periodic research or forensic analysis on older data
+        - Must have dedicated master and have UltraWarm enalbed
+        - Not compatible with T2 T3 instance types on data nodes
+        - If using fine-grained access control, must map users to cold_manager role in OpenSearch DashBoards
+    - Data may be migrated between different storage types
+
+- **Index State Management**: automate index management policies
+    - eg. 
+        - Delete old indices after some time
+        - Move indices into read only state after some time
+        - Move indices between storage types
+        - Reduce replica count over time
+        - Automate index snapshots
+    - ISM policies are run 30-48 minutes
+        - Random jitter to ensure they don't all run at once
+        - Can send notifications when done
+    - Index rollups: periodically roll up old data into summarized indices
+        - Save storage cost, new inde may have fewer fields, coarser time buckets
+    - Index transforms
+        - Create a different view to analyze data differently
+        - Groupings and aggregations
+    - Cross-cluster replication
+        - Replicate indices / mapping / metadata across domains
+        - Ensure HA in outage
+        - Replicate geographically for better latency
+        - "Follower" index pulls data from "leader" index
+        - Requires fine-grained access control and node-to-node encryption
+        - "Remote Reindex" allows copying indices from one cluster to another on demand
+
+- **OpenSearch stability**
+    - 3 dedicated master nodes is best - avoids "split brain", 2 not sure who is the main master mode
+    - Don't run out of disk space
+        - min storage requirements is roughly: Source data * (1 + no. of replicas) * 1.45
+    - Choose number of shards
+        - (source data + room to grow) * (1+ indexing overhead)/desired shard size
+        - in rare cases, you may need to limit number of shards per node, usually run out of disk space first
+
+- **OpenSearch performance**
+    - Memory pressure in JVM can result if: 
+        - Unbalanced shard allocations across nodes
+        - Too many shards in a cluster
+    - Fewer shards can yield better performance if JVMMemory pressure errors are encountered
+        - Delete old or unused indices
+
+- **OpenSearch Serverless - launched Jan 2023**
+    - On-demand autoscaling
+    - Works against "collections" instead of priviosned domains
+        - may be search or times eries type
+    - Always encrtyped with KMS key
+        - Data access policies
+        - Encryption at rest required
+        - May configure security policies across many collections
+    - Capacity measure in Opeansearch Compute Units (OCUs)
+        - Can set upper limit, lower limit is always 2 for indexing, 2 for search
 
 ### QuickSight
 
-- 
+- Fast, easy, business analytics service (dashboarding)
+- Allows all employees to
+    - Build visualisations
+    - Paginated reports
+    - Ad-hoc analysis
+    - Get alerts on detected anomalies
+    - Business insights
+    - Anytime on any device (browsers, mobile)
+- Serverless
+
+**Quicksight Data sources**
+- Redshift
+- Aurora/RDS
+- Athena
+- OpenSearch
+- IoT Analytics
+- EC2-hosted databases
+- Files (S3 or on-prem) - Excel, CSV, TSV, common or extended log format
+
 
 ## App Integration
 
