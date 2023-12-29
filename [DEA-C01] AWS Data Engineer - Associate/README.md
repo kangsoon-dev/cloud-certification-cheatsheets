@@ -36,7 +36,7 @@ The following are my personal notes in preparation for the AWS Certified Data En
    * [Lake Formation](#lake-formation)
    * [Athena](#athena)
    * [Amazon Elastic MapReduce (EMR)](#amazon-elastic-mapreduce-emr)
-   * [Kinesis Data Streams, Firehose -> last](#kinesis-data-streams-firehose)
+   * [Kinesis Data Streams, Firehose → last](#kinesis-data-streams-firehose)
    * [Amazon Managed Streaming for Apache Kafka (MSK)](#amazon-managed-streaming-for-apache-kafka-msk)
    * [OpenSearch Service](#opensearch-service)
    * [QuickSight](#quicksight)
@@ -1116,7 +1116,7 @@ S
     - Pay per shard provisioned/hr
 - **On-demand mode**
     - No need to provision or manage capacity
-    - Default capacity provisioned -> 4 MB/s in or 4000 records/s
+    - Default capacity provisioned → 4 MB/s in or 4000 records/s
     - Scales automatically based on observed throughout peak during last 30 days
     - Pay per stream/hr and in+out data/GB
 
@@ -1132,7 +1132,7 @@ S
 **Kinesis Producers**
 - **Kinesis SDK** - PutRecord(s)
     - API used: `PutRecord` (one) and `PutRecords` (many)
-    - `PutRecords` use batching and increases throughput -> less HTTP requests
+    - `PutRecords` use batching and increases throughput → less HTTP requests
     - **Use case**: low throughput, high latency, simple API, AWS Lambda
     - Managed AWS sources that use ProducerSDK: CloudWatch Logs, AWS IoT, Kinesis Data Analytics
     - `ProvisionedThroughputExceeded` exception if we go over limits
@@ -1171,18 +1171,18 @@ S
 - **Kinesis SDK** - `GetRecords`
     - Classic Kinesis - records polled from shard, each has 2MB total aggregate throughput
     - `GetRecords` returns up to 10MB of data (then throttle for 5sec) or up to 10,000 records
-    - Max 5 `GetRecords` API calls/shard/s -> 200ms latency
-        - if 5 consumer apps consume from same shard, each can poll once/s and receive < 400KB/s -> solve using consumer fan-out feature
+    - Max 5 `GetRecords` API calls/shard/s → 200ms latency
+        - if 5 consumer apps consume from same shard, each can poll once/s and receive < 400KB/s → solve using consumer fan-out feature
 
 - **Kinesis Client Library (KCL)**
     - Java-first library, but exists for other langs too (Golang, Python, Ruby, Node, .NET)
     - Read records from Kinesis produced from KPL (de-aggregation feature)
-    - Multiple consumers share multiple shards in a 'group' -> shard discovery
+    - Multiple consumers share multiple shards in a 'group' → shard discovery
     - **Checkpointing** feature to resume progress
     - Leverages DynamoDB for coordination and checkpointing (one row/shard)
         - Ensure enough DynamoDB WCU/RCU is provisioned, or use On-demand mode, otherwise it may slow down KCL
     - Record processors will process the data
-    - `ExpiredIteratorException` -> increase WCU, DynamoDB table not fast enough to keep up with writes
+    - `ExpiredIteratorException` → increase WCU, DynamoDB table not fast enough to keep up with writes
 
 - **Kinesis Connector Library** - older Java library (2016) that leverages KCL - might be deprecated soon
     - Writes data to S3, DynamoDB, Redshift, OpenSearch
@@ -1198,7 +1198,7 @@ S
     - Configurable batch size, i.e. how much should Lambda read at a time from Kinesis
 
 **Kinesis Enhanced Fan Out**: 
-- Each consumer get 2MB/S of provisioned throughput per shard -> 20 consumers will get 40MB/s per shard aggregated -> NO MORE 2MB/s limit
+- Each consumer get 2MB/S of provisioned throughput per shard → 20 consumers will get 40MB/s per shard aggregated → NO MORE 2MB/s limit
 - Data is pushed from Kinesis to consumers over HTTP/2
 - **Difference vs standard consumers**
     - Multiple consumer apps for same stream, default limit is 20/stream
@@ -1215,11 +1215,11 @@ S
 - **Merging shards**: Decrease stream capacity to save costs if two shards have low traffic
 - Old shards closed and deleted after data expires
 
-- **Out-of-order records after resharding**: After reshard, consumers can read from child shard while unread data still exists in parent shard -> data not in order.
+- **Out-of-order records after resharding**: After reshard, consumers can read from child shard while unread data still exists in parent shard → data not in order.
     - Solution: after reshard, read parent records entirely until no new records
     - KCL has logic built-in to handle this after resharding operations
 
-- **Auto-scaling**: not native feature of Kinesis, manual API call that changes number of shards is `UpdateShardCount` -> implement using AWS Lambda ([Link](https://aws.amazon.com/blogs/big-data/scaling-amazon-kinesis-data-streams-with-aws-application-auto-scaling/))
+- **Auto-scaling**: not native feature of Kinesis, manual API call that changes number of shards is `UpdateShardCount` → implement using AWS Lambda ([Link](https://aws.amazon.com/blogs/big-data/scaling-amazon-kinesis-data-streams-with-aws-application-auto-scaling/))
 
 - **Scaling Limitations**
     - Cannot be done in parallel, so plan capacity in advance
@@ -1240,7 +1240,7 @@ S
         </details>
     
 **Handling Duplicates for Producers** (rarely occurs)
-- Producer retries can create duplicates due to **network timeouts** -> two records with identical data and unique sequence numbers
+- Producer retries can create duplicates due to **network timeouts** → two records with identical data and unique sequence numbers
     - Fix: **embed unique record ID** in data to de-duplicate on consumer side
     ![](./img/kinesis8.png)
 
@@ -1287,8 +1287,8 @@ S
     - Buffer size (e.g. 32MB), flushed once reached
     - Buffer time (e.g. 2mins), flushed once reached
     - Firehose can auto-increase buffer size to increase throughput
-    - High throughput -> buffer size will be hit
-    - Low throughput -> buffer time will be hit
+    - High throughput → buffer size will be hit
+    - Low throughput → buffer time will be hit
 
 **Kinesis Data Streams vs Firehose**
 
@@ -1326,7 +1326,17 @@ S
     - **Small producers (i.e. apps)**
         - Use `PutRecords` or Kinesis Recorder in the AWS Mobile SDKs
 
-
+**Producer issues**
+- Stream returns 500 or 503 error → indicates `AmazonKinesisException` rate above 1% 
+    - Fix: implement retry mechanism
+- Connection error from Flink to Kinesis
+    - Network issue? lack of resources in Flink environment
+    - Possible VPC misconfiguration (different VPC subnet, no peering)
+- Timeout errors from Flink to Kinesis
+    - Adjust RequestTimeout and setQueueLimit on FlinkKinesisProducer
+- Throttling errors
+    - Check for hot shards with enhance monitoring (shard level)
+    - 
 
 ### Amazon Managed Streaming for Apache Kafka (MSK)
 
