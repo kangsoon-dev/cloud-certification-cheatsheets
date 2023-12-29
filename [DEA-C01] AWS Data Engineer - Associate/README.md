@@ -1336,7 +1336,74 @@ S
     - Adjust RequestTimeout and setQueueLimit on FlinkKinesisProducer
 - Throttling errors
     - Check for hot shards with enhance monitoring (shard level)
-    - 
+    - Check logs for "micro spikes" or obscure metrics breaching limit
+    - Try random partition key or improve the key's distribution
+    - Use exponential backoff or rate limiting
+
+**Consumer issues**
+- Records get skipped with Kinesis Client Library - Check for unhandled expcetions on `processRecords`
+- Records in same shard are processeed by more than one processor
+    - May be due to failover on the record processing workers
+    - Adjust failover time
+    - Handle shutdown methods with reason `"ZOMBIE"`
+- Read is too slow
+    - Increase number of shards
+    - MaxRecords/call is too low
+    - Code is too slow (test an empty processor vs yours)
+- `GetRecords` returning empty results - normal, just keep calling `GetRecords`
+- Shard Iterator expires unexpectedly
+    - May need more write capacity on the shard table in DynamoDB
+- Record processing falling behind
+    - Increase retention period while troubleshooting
+    - Usually insufficient resources
+    - Monitor with `getRecords.IteratorAgeMilliseconds` and `MillisBehindLatest`
+- Lambda function not getting invoked
+    - Permissions issue on execution role
+    - Function timeout - check Lambda max execution time
+    - Breaching concurrency limits
+    - Monitor `IteratorAge` metric; it will increase if this is a problem
+- `ReadProvisionedThroughputExceeded` exception - throttling
+    - Reshard your stream
+    - Reduce size of GetRecords requests
+    - Use enhanced fan-out
+    - Use retries and exponential backoff
+- High latency
+    - Monitor with GetRecords.Latency and IteratorAge
+    - Increase shards
+    - Increase retention period
+    - Check CPU and memory utilisation (may need more memory)
+- Code 500 errors
+    - High error rate (>1%), same as producers
+    - Implement retry mechanism
+- Blocked or stuck KCL app
+    - Optimise your processRecords method
+    - Increase MaxLeasesPerWorker
+    - Enable KCL debug logs
+
+**Kinesis Data Analytics** - may be deprecated
+- Ingest streaming data from Kinesis Data Streams/Firehose and transform data before feeding downstream
+- Apply SQL command on data received and optionally use reference tables from S3
+    - Inexpensive, just use JOIN to use data in query
+- Kinesis Data Analytics + Lambda: post processing, e.g. aggregate rows, translate into diff format, transform and enrich data, encryption
+    - Open up access to other services and destinations - S3, DynamoDB, Aurora, Redshift, SNS, SQS, CloudWatch
+
+**Managed Service for Apache Flink**
+- Formerly Kinesis Data Analytics for Apache Flink or for Java
+    - Now supports Python and Scala
+    - Flink: framework for processing data streams
+- MSAF integrates Flink with AWS, develop own Flink app from scratch and load it into MSAF via S3
+- DataStream API and Table API for SQL access
+- Common use cases: Streaming ETL, continuous metric generation, responsive analytics
+    ![](./img/kinesis14.png)
+- Cost: Serverless, pay per use but not cheap
+    - Kinesis Processing Units (KPUs) per hour
+    - 1 KPU = 1vCPU + 4GB
+- Use IAM permissions to access streaming source and destinations(s)
+- Schema discovery
+
+`**RANDOM_CUT_FOREST**`: SQL function used for anamoaly detection on numeric columns in stream
+- Novel way to identify outliers in dataset for further handling
+
 
 ### Amazon Managed Streaming for Apache Kafka (MSK)
 
