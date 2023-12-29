@@ -1582,16 +1582,16 @@ S
     - Fewer shards can yield better performance if JVMMemory pressure errors are encountered
         - Delete old or unused indices
 
-- **OpenSearch Serverless - launched Jan 2023**
-    - On-demand autoscaling
-    - Works against "collections" instead of priviosned domains
-        - may be search or times eries type
-    - Always encrtyped with KMS key
-        - Data access policies
-        - Encryption at rest required
-        - May configure security policies across many collections
-    - Capacity measure in Opeansearch Compute Units (OCUs)
-        - Can set upper limit, lower limit is always 2 for indexing, 2 for search
+**OpenSearch Serverless - launched Jan 2023**
+- On-demand autoscaling
+- Works against "collections" instead of priviosned domains
+    - may be search or times eries type
+- Always encrtyped with KMS key
+    - Data access policies
+    - Encryption at rest required
+    - May configure security policies across many collections
+- Capacity measure in Opeansearch Compute Units (OCUs)
+    - Can set upper limit, lower limit is always 2 for indexing, 2 for search
 
 ### QuickSight
 
@@ -1614,6 +1614,70 @@ S
 - EC2-hosted databases
 - Files (S3 or on-prem) - Excel, CSV, TSV, common or extended log format
 
+**SPICE** - Super-fast, Parallel , In-memory Calculation Engine
+- Uses columnar storage, in-mom, machine code generation
+- Accelerates interactive queries on large datasets
+- Each user gets 10GB of SPICE
+- HA and durable
+- Scales to hundres of thousands of users
+- Can accelerate large queries that would time out in direct query mode (direct Athena)
+    - If it takes more than 30min, SPICE will still time out
+**Quicksight use cases**
+- 
+
+**QuickSight anti-patterns**
+- Highly customised reports - Quicksight is for ad-hoc
+- ETL - use Glue instead
+
+**Security**
+- MFA, VPC connectivity
+    - Add QuickSight's IP address range to your DB security groups
+    - Row-level security
+    - Column-level security, enterprise edition only
+    - Private VPC access - Elastic Network Interface, AWS Direct Connect
+- Resource Access
+    - Must ensure QuickSight is authorised to use Athena / S3
+    - Managed from Quickshift console
+- Data access
+    - Can create IAM policies to restrict what S3 data QuickSight users can access
+
+**Quicksight + Redshift: Security**
+- By default Quicksight can only access data stored in teh same region as the one Quicksight is running within 
+    - Problem if Quicksight and Redshift in diff regions
+- VPC configured to wokr across AWS regions will not work
+- Solution: create new security group with inbound rule authorizing access from the IP range of QUicksight servers in that region ([Link](https://docs.amazon.com/quicksight/latest/user/regions.html))
+
+- Or with Enterprise edition, create private subnet in VPC, then use Elastic Network Interface to put Quicksight in the subnet
+
+- Or create peering connection between private subnet and another private subnet containing your data - also works for cross-account access
+
+- Or use AWS Transit Gateway to connect your subnets
+    - must be in same org and region
+    - can also peer transit gateways in different regions
+    - or use AWS privatelink to connect them
+    - or use VPC sharing to connect them
+
+**Quicksight user management**
+- Users defined in IAM ,or email signup
+- Active Directory connector with QuickSight enterprise Edition
+    - All keys are managed by AWS - CANNOT use customer-provided keys
+    - Enterprise edition only
+    - Can tweak security access using IAM if needed
+
+**Quicksight Dashboards**
+- Read-only snapshots of an analysis - can share with others with Quicksight access
+- Embedded dashboards - embed within an app
+    - Auth with AD / Cognito / SSO
+    - Quicksight Javascript SDK / Quicksight API
+    - Whitelist domain where embedding is allowed
+
+**Quicksight Machine Learning Insights**
+- ML-powered anomaly detection: identify top contributors to significant changes in metrics
+- ML-powered forecasting
+    - Detects seasonality and trends
+    - Excludes outliers and imputes missing values
+- Autonarratives: add story of your data to dashboards
+- Suggested insights : Insights tab displays read-to-use suggested insights
 
 ## App Integration
 
