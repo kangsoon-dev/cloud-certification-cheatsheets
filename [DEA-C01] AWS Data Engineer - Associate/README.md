@@ -403,10 +403,11 @@ The following are my personal notes in preparation for the AWS Certified Data En
 
 **Data import/export for Redshift**
 
-- `COPY` cmd: parallelized, efficient; from S3, EMR using SSH, DynamoDB;
+- **`COPY`** command: parallelized, efficient; from S3, EMR using SSH, DynamoDB;
     - Need manifest file + IAM role
     - Meant for large amounts of data from outside Redshift
     - Can decrypt data from S3 load w hardware-accelerated SSL, fast
+        - Does not support client-side encryption using KMS key**
     - Auto-compression option during load
     - *When loading narrow tables (many rows, few columns) → use single `COPY` command
 - **Snapshot** `COPY` **grant** for cross-region snapshot backup of encrypted cluster
@@ -416,7 +417,9 @@ The following are my personal notes in preparation for the AWS Certified Data En
     - Enable copying of snapshots in source region to copy grant
 - **Internal data transfer in Redshift:** `INSERT INTO … SELECT` or `CREATE TABLE AS`
 - **DBLINK**: Connect and sync between Redshift and PostgreSQL (possibly in RDS)
-- `UNLOAD`: store as files in S3 (can be Parquet format - auto preserve partitioning)
+- **`UNLOAD`** command: store as files in S3 (can be Parquet format - auto preserve partitioning)
+    - Auto-encrypts files ussing SSE-S3
+    - Can also UNLOAD using SSE-KMS or client-side encryption using customer managed key
 - Auto-copy from S3
 - **Zero-ETL** from Aurora DB to Redshift
 - **Redshift Streaming Ingestion** - from kinesis data streams and MSK
@@ -1382,7 +1385,7 @@ S
     - Enable KCL debug logs
 
 **Kinesis Data Analytics** - may be deprecated
-- Ingest streaming data from Kinesis Data Streams/Firehose and transform data before feeding downstream
+- Ingest streaming data from Kinesis Data Streams/Firehose and transform data before feeding downstream - MSK cannot be a data source
 - Apply SQL command on data received and optionally use reference tables from S3
     - Inexpensive, just use JOIN to use data in query
 - Kinesis Data Analytics + Lambda: post processing, e.g. aggregate rows, translate into diff format, transform and enrich data, encryption
