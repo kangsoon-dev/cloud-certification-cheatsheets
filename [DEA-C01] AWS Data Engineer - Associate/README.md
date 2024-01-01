@@ -1684,13 +1684,116 @@ S
 
 ## App Integration
 
-### SQS
+### Simple Queue Service (SQS)
 
-- 
+- Fully managed, scales from 1 message/s to 15,000 messages/s
+- Default retention period of 4 days, max 14 days
+- No limit to how many messages can be in the queue
+- Low latency <10ms on publish and receive
+- Horizontal scaling in terms of number of consumers
+- Can have duplicate messages (at least once delivery, occasionally)
+- Can have out of order messages (best effort ordering)
+- Limitation of **256KB** per message sent
 
-### SNS
+**Producing messages**
+- Consists of define body (up to 256kb）
+- Add message attributes (metadata - optional)
+- Provide delay delivery (optional)
+- Get back - message identifier, MD5 hash of the body
+- SQS vs Kinesis: String vs bytes, 1MB vs 256KB
 
-- 
+**Consuming Messages**
+- Poll SQS for messages (recv up to 10 messages at a time)
+- Process the message within visibility timeout
+- Delete the message using message ID and receipt handle
+
+**FIFO Queue**
+- Name must end in .fifo
+- Lower throughput (up to 3,000/s with batching, 300/s without)
+- Messages are processed in order by the consumer
+- Messages are sent exactly once
+- 5-minute interval de-duplication using "Duplication ID"
+
+**SQS Extended Client - Java Library**
+- Send payload to S3 bucket and message to SQS containing metadata on where the data is in S3 -> consumer reads large data object from S3
+
+**Use Cases**
+- Decouple applications (e.g. handle payments async)
+- Buffer writes to DB (e.g. voting app)
+- Handle large loads of messages coming in (e.g. email sender)
+- SQS also can be integrated with Auto-scaling using CloudWatch (for when you have EC2 reading from SQS)
+
+**SQS Limits**
+- Max 120,000 in-flight messages being processed by consumers
+- Batch request has max 10 messages, max 256KB
+- Message content is XML, JSON, unformatted text
+- Standard queue have unlimited TPS
+- FIFO queues support up to 3,000 messages/s (using batching)
+- Max message size is 256KB (or use Extended Client)
+- Data retention from 1 minute to 14 days
+- Pay per API request, network usage
+
+**Security**
+- Encryption in-flight using HTTPS endpoint
+- Can enable SSE using KMS
+    - Can set Customer Master Key (CMK) we want to use
+    - SSE only encrypts body, not metadata
+- IAM policy must allow usage of SQS
+- SQS queue access policy
+    - Finer grained control over IP
+    - Control over the time requests come in
+ 
+**Dead Letter Queues (DLQ)**
+- If consumer fails to process message within `VisibilityTimeout` period, message goes back to the queue
+- We can set threshold of how many times message can go back to the queue
+- After `MaximumReceives` threshold is exceeded, the message goes into dead letter queue (DLQ)
+- Useful for debugging
+- FIFO queue uses FIFO DLQ, Standard queue uses standard DLQ
+- Make sure to process messages in DLQ before expiry
+    - Good to set retention to 14 days in DLQ
+
+**DLQ Redrive to Source**
+- Feature to help consume messages in DLQ to understand what is wrong with them
+- When our code is fixed, we can redrive the messages back to source (or any other queue in batches) without writing custom code
+
+### Simple Notification Service (SNS)
+- For sending one message to many receivers - Pub/sub model
+- Publisher -> topic -> subscriptions (many)
+- Each subscriber (up to 12.5m/topic) will get all messages, can filter messages
+- 100k topics per subscription
+
+**Publishing**
+- Topic publish (using SDK)
+    - Create topic
+    - Create subscription (or many)
+    - Publish to topic
+- Direct publish (for mobile apps SDK)
+    - Create platform app
+    - Create platform endpoint
+    - Publish to platform endpoint
+    - Works with Google GCM, Apple APNS, Amazon ADM...
+ 
+**Security**
+- In-flight encryption - HTTPS API
+- At-rest encryption - KMS keys
+- Client-side encryption if client wants to perform it themselves
+- Access Control: IAM policies to regulate access to SNS API
+- SNS Access Policies (similar to S3 bucket policies)
+    - Useful for cross-account access to SNS topics
+    - Useful for allowing other services (e.g. S3) to write to an SNS topic
+
+**SNS + SQS: Fan Out**
+- Push once into SNS -> receive in all SQS queues that are subscribers
+- Fully decoupled, no data loss
+- SQS: data persistence, delayed processing, retries of work
+- Ability to add more SQS subscribers over time
+- Ensure SQS queue access policy allows SNS to write
+- Cross-region delivery: works with SQS Queues in other regions
+
+- E.g. S3 event to multiple queues
+    - Same combination of event type (eg object create) and prefix (images/), but you can only have one S3 event rule
+    - Fan-out for sending to multiple SQS queues
+
 
 ### Step Functions**
 
