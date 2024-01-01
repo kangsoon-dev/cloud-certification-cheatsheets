@@ -299,6 +299,7 @@ The following are my personal notes in preparation for the AWS Certified Data En
 - DynamoDB Scan operation reads every item in a table or a secondary index. By default, a Scan operation returns all of the data attributes for every item in the table or index. An inefficient way of reading data as it consumes lot of RCU's.
 - DynamoDB can be accessed using gateway VPC endpoint from other services without the internet. Access to tables is also fully controlled by IAM. Has in-flight and at rest encryption.
 
+
 ### RDS, Amazon Aurora
 - Hosted relational DB - Aurora, MySQL, PostgreSQL, MariaDB, Oracle, SQL Server
 - ACID - Atomicity, Consistency, Isolation, Durability
@@ -332,6 +333,38 @@ The following are my personal notes in preparation for the AWS Certified Data En
     - MySQL, MariaDB: tables < 16TB, ideally <100GB, have enough RAM, <10,000 tables, use InnoDB for storage engine
     - PostgreSQL: dataload: disable DB backups and multi-AZ. use auto-vaccum
     - SQL Server: use RDS DB Events to monitor failovers, do not enable simple recover mode, offline mode, or read-only mode, deploy into all AZs
+
+### DocumentDB
+- AWS implementation of MongoDB (NoSQL database)
+- Fully managed, highly available, replication across 3 AZ
+- DocumentDB storage automatically grows in increments of 10GB
+- Automatically scales to workloads with millions of requests/sec
+
+### Amazon MemoryDB for Redis
+- Redis-compatible, durable, in-memory database service
+- Ultra-fast performance, over 160mil request/sec
+- Durable in-memory data storage with Multi-AZ transactional log
+- Scale seamlesssly from 10s GBs to 100s TBs of storage
+- Use cases: web and mobile apps, online gaming, media streaming, ...
+
+### Amazon Keyspaces for Apache Cassandra
+- Cassandra - open-soure NoSQL distributed database
+- Serverless, managed Apache-Cassandra-compatible database service
+- Auto-scale tables up/down based on app traffic
+- Tables replicated 3 times across multile AZ
+- Uses the Cassandra Query Language (CQL)
+- Single-digit millisecond latency at any scale, 1000s requests/sec
+- Capacity: on-demand mode or provisioned mode with auto-scaling
+- Encrpytion, backup, Point-in-Time Recovery (PITR) up to 35 days
+- Use cases: store IoT device info, time-series data, ...
+
+### Amazon Neptune
+- Fully managed graph database (e.g. social network)
+- Highly available across 3 AZs, with up to 15 read replicas
+- Build and run apps working with highly connected datasets
+- Store billions of relations, query with millisecond latency
+- Highly available with replications acorss multiple AZs
+- Use cases: knowledge graphs, fraud detection, recommendation engines, social networking
 
 ### Redshift**
 
@@ -1286,7 +1319,7 @@ inputDF.groupBy($"action",window($"time”,"1 hour").count().writeStream.format(
 ![](./img/kinesis9.png)
 - Read records, up to 1MB at a time
 - Batch writes into destinations efficiently
-- Near real-time service (60s latency minimum for non-full batches)
+- **Near real-time service**** (60s latency minimum for non-full batches)
 - Destinations: Redshift, S3, OpenSearch , Splunk
 - Automatic scaling
 - Data Conversions from JSON to Parquet/ORC (only for S3)
@@ -1809,19 +1842,79 @@ inputDF.groupBy($"action",window($"time”,"1 hour").count().writeStream.format(
 
 ### Step Functions**
 
-- 
+- Design workflows, easy visualisations
+- Advanced Error handling and retry mechanism outside of the code
+- Audit history of workflows
+- Max execution time of a State Machine is 1 year
+- Definition: written in Amazon States Language (ASL), won't need to know for test
+**State Machines and States**
+- Workflow is called state machine, each step in workflow is called a state
+- State types
+    - Tasks: e.g. Does something with Lambda, other AWS services, or thrid party APIs
+    - Choice: conditional logic
+    - Wait: Delays state machine for specified time
+    - Parallel: Add separate branches of execution
+    - Map: Run set of steps for each item in a dataset, in parallel
+        - Most relevant to DE, works with JSON, S3 objects, CSV files
+    - **Pass, Succeed, Fail**
 
 ### AppFlow
+- Fully managed integration service, security transfer data between SaaS applications and AWS
+- Sources: Salesforce, SAP, Zendesk, Slack, ServiceNow, etc.
+- Destinations: AWS services (S3, Redshift) or non-AWS such as SnowFlake and Salesforce, etc.
+- Frequency: on schedule, inresponse to events, or on demand
+- Encrypted over public internet or privately over AWS PrivateLink
+- Save time on writing integrations, leverage APis immediately
 
-- 
+### Amazon EventBridge
+- Formerly CloudWatch Events
+- Schedule: cron jobs (scheduled scripts)
+    - e.g. schedule lambda trigger run every hour
+- Event pattern: events rules to reach to a service doing something
+    - e.g. S3 file upload
+- Actions: Trigger Lambda, send SQS/SNS messages, etc.
+**Amazon EventBridge Rules**
+- JSON doc with event details upon source trigger
+- Possible destinations: Compute, integration, orchestration, maintenance
 
-### EventBridge
+**EventBridge integration**
+- AWS services -> Default event bus
+- SaaS partners -> Partner Event Bus (eg zendesk, Datadog, etc.)
+    - React to changes from outside AWS
+- Custom Apps -> Custom Event Bus
+- Event buses can be access by other AWS accounts using Resource-based policies
+- Can archive events (all/filter) sent to event bus (indefinitely or set period)
+- Ability to replay archived events
 
-- 
+**Eventbridge Schema Registry**: 
+- Infer schema from analysing events in bus
+- Allow you to generate code for your application that will know in advance how the data is structured in the event bus
+- Schema can be versioned
+
+**Resource-based Policy**: 
+- Manage permissions for specific Event Bus
+- e.g. allow/deny events from another AWS account/region
+- **Use case**: aggregate all events from your AWS Origanisation in a single AWS account or AWS region
 
 ### Amazon Managed Workflows for Apache Airflow (MWAA)
-
-- 
+- Batch-oriented workflow tool
+- Develop, schedule and monitor workflows
+- Workflows are defined as Python code that creates a Directed Acyclic Graph (DAG)
+- MWAA provides a managed service so you dont have to deal with installing or maintaining it
+- Use cases: Complex workflows, ETL coordination, preparing ML data
+- DAGs (Python code) are uploaded into S3
+    - May also zip it together with required plugins and requirements
+- MWAA picks it up, orchestrates and schedules the pipelines defined by each DAG
+- Runs within a VPC
+    - In at least 2 AZ's
+- Automatic scaling
+    - Airflow workers auto-scale up to defined limits
+- **Integration**
+    - Athena, Batch, CloudWatch, DynamoDB, DataSync
+    - EMR, FarGate, EKS, Kinesis, Glue, Lambda
+    - Redshift, SQS, SNS, Sagemakers, S3, and more
+    - Security services (AWS Secrets Manager, etc)
+- Schedulers and workers are AWS Fargate containers
 
 ## Security, Identity and Compliance
 
