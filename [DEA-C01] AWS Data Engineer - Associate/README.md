@@ -152,7 +152,8 @@ The following are my personal notes in preparation for the AWS Certified Data En
 
 ### Elastic File System (EFS)
 
-- Managed Network file system (NFS) can be mounted on many EC2
+- Managed Network file system (NFS) can be mounted on many EC2 and Lambda instances
+    - Use for maintaining stateful processing and intermediate data between multiple compute (Lambda) invocations
 - Works with EC2 instances in multi-AZ
 - Highly available, scalable (auto), EXPENSIVE (3x gp2), pay per use
 - Security group used to control access
@@ -286,6 +287,11 @@ The following are my personal notes in preparation for the AWS Certified Data En
 
 - **Producers**: Client SDK,DMS (Database Migration Service), AWS Data Pipeline
 - **Consumers**: DynamoDB Streams, Glue(metadata store), EMR (Hive)
+
+**DynamoDB Global Tables**
+- Fully managed, serverless, multi-region, multi-active
+- Multiple replica tables in diffrerent region, all with same name and same primary key
+- Does not support partial replication of only some of the items
 
 **Notes**
 
@@ -509,14 +515,14 @@ The following are my personal notes in preparation for the AWS Certified Data En
 
 **Redshift Federated Queries**: query and analyse across DB, DWH and lakes
 
-- Tie RS to Amazon RDS or Aurora (Postgres, MySQL)
-- Incorporate live data in RDS into RS queries; Avoid need for ETL pipelines
+- Allow Redshift to access Amazon RDS or Aurora (Postgres, MySQL) in the same query
+- Incorporate live data in RDS into Redshift queries; Avoid need for ETL pipelines
 - Offload computation to remote DBs to reduce data movement
-    - Establish connectivity between RS and RDS/Aurora - VPC subnet or VPC peering
-    - Credentials stored in AWS Secrets Manager, inclusdes secrets in IAM role for RS
+    - Establish connectivity between Redshift and RDS/Aurora - VPC subnet or VPC peering
+    - Credentials stored in AWS Secrets Manager, inclusdes secrets in IAM role for Redshift
     - Connect using `CREATE EXTERNAL SCHEMA`
     - **`SVV_EXTERNAL_SCHEMAS` view contains available external schemas
-- Read-only access to external data sources, costs incurred on external DBs
+- Read-only access to external data sources, costs are incurred on external DBs
 
 **Redshift System tables and views**** - info about how Redshift is functioning
 
@@ -539,8 +545,12 @@ The following are my personal notes in preparation for the AWS Certified Data En
 - Quick and securely migrate DBs to AWS, resilient, self-healing
     - Continuous Data Replication using Change Data Capture (CD)
     - Must create EC2 instance to perform replication tasks
-- AWS Schema Conversion Tool (SCT) : convert DB schema from one engine to another
+
+- **Schema Conversion feature**: web version of SCT, automates conversion of DB schema to be compatible with the target database. 
+
+**AWS Schema Conversion Tool (SCT)**: standalone application that converts DB schema from one engine to another
     - OLTP to OLTP, OLAP to OLAP
+    - To convert data warehouse schemas, big data frameworks, application SQL code, and ETL processes, use AWS SCT.
 - Multi-AZ deployment - Synchronously stand replica in different AZ → data redundancy, eliminate i/o freeze, data spikes
 
 ### DataSync
@@ -973,19 +983,20 @@ inputDF.groupBy($"action",window($"time”,"1 hour").count().writeStream.format(
 
 - Kinesis producer → Kinesis Data Streams ← Spark dataset implemented from KCL
 
-**Intregration with Redshift**
+**Integration with Redshift**
 
 - spark-redshift package allows Spark datasets from Redshift → Spark SQL data source, useful for ETL using Spark
 - e.g. S3 → Redshift → ETL with EMR (Spark) → Redshift → …
 
 **Integration with Athena**
-S
 - Run Jupyter notebooks with Spark within Athena console → notebooks may be encrypted automatically or with KMS
 - Totally serverless
 - Selectable as an alternate analytics engine (vs Athena SQL)
 - Uses Firecracker for quickly spinning up Spark resources
 - Programming API/CLI access - `create-work-group`, `create-notebook`, `start-session`, `start-calculation-execution`
 - Can adjust DPUs for coordinator and executor, price based on compute usage and DPU/hr
+- Can directly query S3 as data source with proper IAM permissions (https://aws.amazon.com/blogs/big-data/run-spark-sql-on-amazon-athena-spark/)
+- Also supports cross-account Data Catalog access through Athena Spark (https://docs.aws.amazon.com/athena/latest/ug/spark-notebooks-cross-account-glue.html)
 
 ### Amazon Elastic MapReduce (EMR)
 
@@ -1531,6 +1542,7 @@ S
 - **OpenSearch anti-patterns**
     - OLTP - no transactions, RDS/DynamoDB is better
     - Ad-hoc data querying, Athena is better
+    - Ad-hoc logs analysis, use CloudWatch Logs Insights
     - Search and analytics is more suitable
 
 - **Storage Types**

@@ -1,7 +1,3 @@
-<style type="text/css">
-    ol { list-style-type: upper-alpha; }
-</style>
-
 ## Scraped Questions from ExamTopics.com
 
 The following questions and answers are from the Certified Data Analytics Specialty page of ExamTopics.com. All credit goes to them for this material. 
@@ -48,9 +44,7 @@ Which method should the company use to collect and analyze the logs?
 <details><summary>Answer</summary>
 Correct Answer: D 🗳️
 
-Reference:
 https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/Subscriptions.html
-
 </details><br>
 
 ---
@@ -69,10 +63,8 @@ Which actions should the data analyst take?
  
 <details><summary>Answer</summary>
 Correct Answer: B 🗳️
-Reference:
+
 https://docs.aws.amazon.com/glue/latest/dg/monitor-debug-capacity.html
-Community vote distribution
-B (100%)
 </details><br>
 
 ---
@@ -1114,5 +1106,3 @@ https://www.examtopics.com/exams/amazon/aws-certified-data-analytics-specialty/v
 
 ---
 <br>
-
-
