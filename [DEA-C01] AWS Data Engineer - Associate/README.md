@@ -136,9 +136,15 @@ The following are my personal notes in preparation for the AWS Certified Data En
 
 **S3 Select and Glacier Select****: Query subset of S3 data in place using SQL. Can be performed on uncompressed csv files.
 
+**S3 Object Lambda**
+- Allows additional custom processing, such as PII redaction, to data retrieved from S3 objects through Lambda functions.
+- Enables dynamic data transfomrations in response to S3 GET requests -> redact on-the-fly, no need to maintain extra data copies
+- Efficient way of providing differentiated data access based on user access levels.
+
 ### Elastic Block Storage (EBS)
 
-- Network “USB stick” attached to instance while they run - uses network so can have latency
+- Network “USB stick” attached to EC2 instances while they run - uses network so can have latency
+- DOES NOT WORK WITH LAMBDA
 - Can persist data after termination
 - Only mount to one instance at a time, bound to one AZ
 - Move across AZs using snapshots
@@ -148,7 +154,9 @@ The following are my personal notes in preparation for the AWS Certified Data En
 
 **EBS Elastic Volumes****
 
-- No need to detach or restart to change it. can only increase volume size, cannot decrease. Can change volume type and IOPS
+- No need to detach or restart to change it. 
+- Can only increase volume size, cannot decrease. 
+- Can change volume type and IOPS
 
 ### Elastic File System (EFS)
 
@@ -265,10 +273,11 @@ The following are my personal notes in preparation for the AWS Certified Data En
 
 **PartiQL**: SQL-like syntax to manipulate DynamoDB tables. Only allow INSERT, UPDATE, SELECT, DELETE. Supports batch operations. Access through PartiQL editor in console.
 
-**DynamoDB Accelerator(DAX)**: Fully managed in-memory cache for DynamoDB with microsecond latency. 
+**DynamoDB Accelerator(DAX)**: Fully managed in-memory cache for DynamoDB with microsecond latency, good for read-intensive workloads. 
 
 - Solves hot key problem
 - DAX cluster acts as a layer between app and DynamoDB table to get very fast reads.
+- Effective in environments with high read-to-write ratios, and when dataset size exceed memory size available in single machine
 - vs ElastiCache: DAX for simple queries like individual objects, query and scan; while ElastiCache is used for storing filtering and aggregation result that is computationally intensive
 
 **DynamoDB Streams** - Ordered streams of item level modifications in a DynamoDB table made of shards .
@@ -315,6 +324,7 @@ The following are my personal notes in preparation for the AWS Certified Data En
     
 - Shared locks `FOR SHARE`: Allow reads, prevent writes, can be held by many transactions
 - Exclusive locks `FOR UPDATE`: Prevent all reads/writes to resource. Only by 1 transaction.
+- Configure the `idle_in_transaction_session_timeout` parameter in PostgreSQL to auto-terminate idle sessions that hold locks and hinder performance.
 
 **Best practices**
 
@@ -331,7 +341,7 @@ The following are my personal notes in preparation for the AWS Certified Data En
     - `ANALYZE TABLE` periodically to ensure table in good health
 - DB-Specific tweaks
     - MySQL, MariaDB: tables < 16TB, ideally <100GB, have enough RAM, <10,000 tables, use InnoDB for storage engine
-    - PostgreSQL: dataload: disable DB backups and multi-AZ. use auto-vaccum
+    - PostgreSQL: dataload: disable DB backups and multi-AZ. use auto-vacuum
     - SQL Server: use RDS DB Events to monitor failovers, do not enable simple recover mode, offline mode, or read-only mode, deploy into all AZs
 
 ### DocumentDB
@@ -437,7 +447,9 @@ The following are my personal notes in preparation for the AWS Certified Data En
 
 **Redshift Sort Keys**
 
-- Rows stored on disk in sorted order based on chosen sort key col. Works like an index.
+- Rows stored on disk in sorted order based on chosen sort key col. Works like an index. 
+- Use sort keys on columns frequently used in filtering and joining     
+    - Redshift organises data more efficiently, can greatly reduce amount of data scanned during queries
 - SINGLE, COMPOUND (default, multiple columns, in specified order), INTERLEAVED (equal weight to each column or subset of columns for each sort key)
 
 **Data import/export for Redshift**
@@ -477,9 +489,13 @@ The following are my personal notes in preparation for the AWS Certified Data En
     - `CREATE TABLE AS (CTAS)`, Read-only queries (`SELECT` statements)
     - Use ML to predict, can configure how many seconds is “short”
 
-**`VACUUM` command** - Recover space from deleted rows
+**`VACUUM` command**** - Recover space from deleted rows
 
-- Options: `FULL`, `DELETE ONLY`, `SORT ONLY` (does not reclaim disk space), `REINDEX`
+- `FULL`: re-sorts rows, reclaim from rows marked for deletion
+- `DELETE ONLY`: reclaim space from deleted but not physically removed from disk
+- `SORT ONLY`: optimise physical layout, does not reclaim disk space
+- `REINDEX`: reorganize distribution of values in interleaved sort key columns, performs full `VACUUM` operation
+    - more time-consuming than `FULL`
 
 **Concurrency scaling** - auto-add cluster capacity to handle more concurrent read queries
 
@@ -548,18 +564,39 @@ The following are my personal notes in preparation for the AWS Certified Data En
 
 **Redshift Federated Queries**: query and analyse across DB, DWH and lakes
 
-- Allow Redshift to access Amazon RDS or Aurora (Postgres, MySQL) in the same query
+- Allow Redshift to access transactional DBs such as Amazon RDS or Aurora (Postgres, MySQL) in the same query
 - Incorporate live data in RDS into Redshift queries; Avoid need for ETL pipelines
 - Offload computation to remote DBs to reduce data movement
     - Establish connectivity between Redshift and RDS/Aurora - VPC subnet or VPC peering
     - Credentials stored in AWS Secrets Manager, inclusdes secrets in IAM role for Redshift
-    - Connect using `CREATE EXTERNAL SCHEMA`
+    - **Connect using `CREATE EXTERNAL SCHEMA`**
     - **`SVV_EXTERNAL_SCHEMAS` view contains available external schemas
 - Read-only access to external data sources, costs are incurred on external DBs
 
+**Redshift Data API**
+- Secure HTTP endpoint and integration with AWS SDKs to run SQL statements without managing connections
+- Calls are asynchronous
+- Authorisation
+    - Secrets Manager: `secret-arn`
+    - Temporary database credentials:
+        - Serverless workgroup: Specify the workgroup name and database name. The database user name is derived from the IAM identity. Requires `redshift-serverless:GetCredentials` permission.
+
+        - IAM identity: Specify cluster identifier and database name. The database user name is derived from the IAM identity. Requires `redshift:GetClusterCredentialsWithIAM` permission.
+        
+        - Database user: Specify cluster identifier, database name, and database user name. Requires `redshift:GetClusterCredentials` permission.
+
+
 **Redshift System tables and views**** - info about how Redshift is functioning
 
-- **SYS**: usage, **STV**: snapshots of current sysdata, **SVV**: metadata, **STL**: logs, **SVCS, SVL**: query details
+- **SYS**: usage, **STV**: snapshots of current sysdata, **SVV**: metadata, 
+- **STL**: logs, **SVCS, SVL**: query details
+
+Important 
+
+- **STL_QUERY_METRICS**: detailed metrics for completed queries, including rows processed, CPU usage, and disk usage.
+- **STL_USAGE_CONTROL**: monitor and control the usage limits of Redshift clusters, focusing on aspects like data scan amounts.
+- **STL_PLAN_INFO**: execution plans of queries, including segment and step details.
+- **STL_ALERT_EVENT_LOGS**: identify queries where the query optimizer has detected potential performance issues, such as inefficient joins or excessive data scanning.
 
 ## Migration and Transfer
 
@@ -667,11 +704,13 @@ The following are my personal notes in preparation for the AWS Certified Data En
 
 ### Serverless Application Model (SAM)
 
-- Framework for developing and deploying serverless apps, all config using YAML code - install on CLI
+- Framework for **serverless** app infrastructure code quickly, using less code, all config using YAML code - install on CLI
 - Generate complex CloudFormation from simple SAM YAML file
     - Supports Outputs, Mapping, Parameters, Resources, etc.
 - Can use CodeDeploy to deploy Lambda functions
-- Use to run Lambda, API Gateway, DynamoDB locally
+- Can use to run Lambda, API Gateway, DynamoDB locally
+- Quickly provision permissions between resources with AWS SAM connectors
+- Subset of CloudFormation - also supports rollback capabilities and ease of deployment across multie- accounts/regions
 
 **Recipes**: Transform header, write code, package and deploy
 - *AWS::Serverless::Function*
@@ -688,6 +727,7 @@ The following are my personal notes in preparation for the AWS Certified Data En
 **CLI Debugging**
 - Locally build, test, and debug serverless apps, provide lambda-like execution environment
 - SAM CLI + AWS Toolkits → step-through and debug code
+- Has Terraform support
 
 ### AWS Batch
 
@@ -790,6 +830,9 @@ The following are my personal notes in preparation for the AWS Certified Data En
 
 - Collection of DynamicRecords → self-describing and have a schema
 - Scala and Python APIs available
+- Do not require fixed schema and more tolerant of data anomalies and variations
+    - Able to handle schema variations and errors more gracefully compared to Spark DataFrames
+
 
 **Transformations**
 
@@ -962,6 +1005,7 @@ The following are my personal notes in preparation for the AWS Certified Data En
 
 - Highly-formatted reports/visualisations → use QuickSight instead
 - ETL → use Glue instead
+- Querying large datasets and complex aggregations → consider Redshift for a more performance-optimised approach
 
 **Optimising Athena performance**
 
@@ -989,7 +1033,14 @@ The following are my personal notes in preparation for the AWS Certified Data En
     
 - Just need to map these operations to their IAM actions
 
-**`CREATE TABLE AS SELECT`** - available in Athena but also available in other DBs
+**`CREATE TABLE AS SELECT (CTAS)`** - available in Athena but also available in other DBs
+
+    CREATE TABLE new_table
+    WITH (
+        format = 'Parquet',
+        write_compression = 'SNAPPY')
+    AS SELECT *
+    FROM old_table
 
 - Create new table from query results
 - Can also be used to convert data into a new underlying format → trick to use Athena to convert data from S3
@@ -1023,6 +1074,7 @@ inputDF.groupBy($"action",window($"time”,"1 hour").count().writeStream.format(
 
 **Integration with Athena**
 - Run Jupyter notebooks with Spark within Athena console → notebooks may be encrypted automatically or with KMS
+    - Preinstalled Python libraries are available in notebooks like scikit-learn, scipy, etc. Spark MLlib not supported
 - Totally serverless
 - Selectable as an alternate analytics engine (vs Athena SQL)
 - Uses Firecracker for quickly spinning up Spark resources
@@ -1907,7 +1959,7 @@ inputDF.groupBy($"action",window($"time”,"1 hour").count().writeStream.format(
 - MWAA picks it up, orchestrates and schedules the pipelines defined by each DAG
 - Runs within a VPC
     - In at least 2 AZ's
-- Automatic scaling
+- Automatic scaling by defining max workers
     - Airflow workers auto-scale up to defined limits
 - **Integration**
     - Athena, Batch, CloudWatch, DynamoDB, DataSync
@@ -1926,9 +1978,9 @@ inputDF.groupBy($"action",window($"time”,"1 hour").count().writeStream.format(
 
 - 
 
-### KMS
+### KMS **
+- Allow cross-account data encryption/decryption without sharing the key out of the account -> maintains centralised control and ensures compliance
 
-- 
 
 ### Secrets Manager
 
@@ -1989,5 +2041,32 @@ inputDF.groupBy($"action",window($"time”,"1 hour").count().writeStream.format(
 ### CodeDeploy, CodeCommit, CodeBuild, CodePipeline
 
 - 
+
+## Miscellaneous
+
+### Application Auto Scaling
+Web service for developers and system administrators who need a solution for automatically scaling their scalable resources for individual AWS services beyond Amazon EC2. 
+
+- Target tracking scaling – Scale a resource based on a target value for a specific CloudWatch metric.
+
+- Step scaling – Scale a resource based on a set of scaling adjustments that vary based on the size of the alarm breach.
+
+- Scheduled scaling – Scale a resource one time only or on a recurring schedule.
+
+- **Targets:**
+
+    - DynamoDB tables and global secondary indexes
+
+    - Amazon Elastic Container Service (ECS) services
+
+    - ElastiCache for Redis clusters (replication groups)
+
+    - Amazon EMR clusters
+
+    - Amazon Keyspaces (for Apache Cassandra) tables
+
+    - Lambda function provisioned concurrency
+
+    - Amazon Managed Streaming for Apache Kafka (MSK) broker storage, etc.
 
 ## Acknowledgements
