@@ -117,7 +117,7 @@ The following are my personal notes in preparation for the AWS Certified Data En
 - Same-region replication - Log aggregation, live replication between diff accounts.
 - S3 automatically scales to high request rates and gives 5500 GET and 3500 PUT/POST per prefix.
 
-**S3 Transfer Acceleration**: Used to increase transfer speed by transferring a file to edge location which will then forward the data to S3 bucket in target region.
+**S3 Transfer Acceleration**: Used to increase transfer speed by transferring a file to edge location which will then forward the data to S3 bucket in target region. Good for cross-region
 
 **S3 Encryption**
 
@@ -134,7 +134,7 @@ The following are my personal notes in preparation for the AWS Certified Data En
 - Resource based - Bucket policies /Object ACL's
 - Network based - support Gateway VPC endpoint for other services to access S3 via private network.
 
-**S3 Select and Glacier Select****: Query subset of S3 data in place using SQL. Can be performed on uncompressed csv files.
+[DEPRECATED] ~~**S3 Select and Glacier Select**: Query subset of S3 data in place using SQL. Can be performed on uncompressed csv files.~~
 
 **S3 Object Lambda**
 - Allows additional custom processing, such as PII redaction, to data retrieved from S3 objects through Lambda functions.
